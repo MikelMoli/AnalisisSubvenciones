@@ -1,12 +1,10 @@
 import os
 import sys
-sys.path.append(os.getcwd())
 import requests
 from utils.constants import ITEMS_PER_PETITION, DB_CONNECTION_URL, MAX_RETRIES, SLEEP_TIME
 import utils.functions as auxiliar_functions
 from models.directory_models import Actor, Municipality, Sector, ContactPhone, ContactEmail, ContactWebsite, RelatedActors, CreateDatabase
 
-from sqlalchemy import insert
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
 from requests.exceptions import ConnectionError
@@ -15,13 +13,17 @@ from time import sleep
 from tqdm import tqdm
 import multiprocessing as mp
 
-class ExtractEntities:
+sys.path.append(os.getcwd())
+
+
+class ExtractActors:
 
     def __init__(self):
         self._BASE_URL = "https://api.euskadi.eus/directory?lang=SPANISH&fromItemAt={}&pageSize={}"
-        self._pagination_factor = auxiliar_functions.get_pagination_factor(self._BASE_URL.format(0, 10))
+        self._pagination_factor = auxiliar_functions.get_pagination_factor(self._BASE_URL.format(0, 10), "actor")
 
-    def _parse_contact_methods(self, data, actor_id):
+    @staticmethod
+    def _parse_contact_methods(data, actor_id):
         phone_list = []
         email_list = []
         website_list = []
@@ -35,8 +37,9 @@ class ExtractEntities:
                 website_list = [ContactWebsite(website=website.get("url"), id=None, actor_id=actor_id, usage=website.get("usage")) for website in data.get("websites")]
 
         return phone_list, email_list, website_list
-    
-    def _parse_municipality(self, data, actor_id):
+
+    @staticmethod
+    def _parse_municipality(data, actor_id):
         if "geoPosition" in data.keys():
             data = data.get("geoPosition")
             portal = None
@@ -79,14 +82,16 @@ class ExtractEntities:
         else:
             return None
 
-    def _parse_sectors(self, data, actor_id):
+    @staticmethod
+    def _parse_sectors(data, actor_id):
         sectors = []
         if "sectors" in data.keys():
             data = data.get("sectors")
             return [Sector(id=None, actor_id=actor_id, name=sector.get("name")) for sector in data]
         return sectors
 
-    def _parse_linked_agents(self, data, actor_oid):
+    @staticmethod
+    def _parse_linked_agents(data, actor_oid):
         links = []
         if "peopleLinks" in data.keys():
             links += data.get("peopleLinks")
@@ -104,13 +109,14 @@ class ExtractEntities:
                 )
         return related_actors
 
-    def _parse_actor_response(self, data):
+    @staticmethod
+    def _parse_actor_response(data):
         actor_oid = data.get("oid")
         try:
-            municipality = self._parse_municipality(data, actor_oid)
-            sectors = self._parse_sectors(data.get("_links"), actor_oid)
-            phone_list, email_list, website_list = self._parse_contact_methods(data, actor_oid)
-            related_actors = self._parse_linked_agents(data.get("_links"), actor_oid)
+            municipality = ExtractActors._parse_municipality(data, actor_oid)
+            sectors = ExtractActors._parse_sectors(data.get("_links"), actor_oid)
+            phone_list, email_list, website_list = ExtractActors._parse_contact_methods(data, actor_oid)
+            related_actors = ExtractActors._parse_linked_agents(data.get("_links"), actor_oid)
 
             actor = Actor(
                 oid=actor_oid,
@@ -132,7 +138,8 @@ class ExtractEntities:
             print(e, flush=True)
             raise Exception()
 
-    def _make_petition(self, url):
+    @staticmethod
+    def _make_petition(url):
         success = False
         tries = 1
         while not success:
@@ -141,7 +148,7 @@ class ExtractEntities:
                 auxiliar_functions.check_response_code(response)
                 success = True
             except ConnectionError:
-                if tries==MAX_RETRIES:
+                if tries == MAX_RETRIES:
                     print(url, flush=True)
                 print(f"Retying {url}...", flush=True)
                 sleep(SLEEP_TIME)
@@ -149,21 +156,22 @@ class ExtractEntities:
 
         return response.json()
 
-    def _process_page_data(self, items):
+    @staticmethod
+    def _process_page_data(items):
         engine = create_engine(DB_CONNECTION_URL, echo=False)
         with Session(engine) as session:
             for item in tqdm(items):
                 item_url = item.get("_links").get("self").get("href")
-                response_data = self._make_petition(item_url)
-                actor, related_actors = self._parse_actor_response(response_data)
+                response_data = ExtractActors._make_petition(item_url)
+                actor, related_actors = ExtractActors._parse_actor_response(response_data)
                 session.add(actor)
                 session.add_all(related_actors)
             
             session.commit()
             # session.flush()
 
-  
-    def _handle_directory_call(self, url):
+    @staticmethod
+    def _handle_directory_call(url):
         success = False
         tries = 1
         while not success:
@@ -172,26 +180,27 @@ class ExtractEntities:
                 auxiliar_functions.check_response_code(response)
                 success = True
             except ConnectionError:
-                if tries==MAX_RETRIES:
+                if tries == MAX_RETRIES:
                     print(url, flush=True)
                     raise Exception()
-                print(f"Retying {url}...", flush=True)
-                sleep(SLEEP_TIME)
-                tries += 1
+                else:
+                    print(f"Retying {url}...", flush=True)
+                    sleep(SLEEP_TIME)
+                    tries += 1
         return response
 
     def run(self):
-        PARALLELIZE = False
-        if PARALLELIZE:
+        parallelize = False
+        if parallelize:
             with mp.Pool(processes=4) as pool:
                 for page_number in tqdm(range(0, self._pagination_factor)):
                     item_index = page_number * ITEMS_PER_PETITION
                     directory_url = self._BASE_URL.format(item_index, ITEMS_PER_PETITION)
-                    response = self._handle_directory_call(directory_url)
+                    response = ExtractActors._handle_directory_call(directory_url)
                     items = response.json()['pageItems']
-                    _ = pool.apply_async(self._process_page_data, (items,))
+                    _ = pool.apply_async(ExtractActors._process_page_data, (items,))
         else:
-            for page_number in range(51, self._pagination_factor):
+            for page_number in range(0, self._pagination_factor):
                 print(f"------------------------ {page_number} / {self._pagination_factor} ------------------------")
                 item_index = page_number * ITEMS_PER_PETITION
                 directory_url = self._BASE_URL.format(item_index, ITEMS_PER_PETITION)
@@ -201,9 +210,9 @@ class ExtractEntities:
                 self._process_page_data(items)
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     cd = CreateDatabase()
     cd.run()
 
-    extract_entities_task = ExtractEntities()
+    extract_entities_task = ExtractActors()
     extract_entities_task.run()

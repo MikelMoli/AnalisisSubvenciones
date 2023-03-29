@@ -9,17 +9,73 @@ from typing import List, Optional
 
 DB_SCHEMA = "extract_benefits"
 
+
 class Base(MappedAsDataclass, DeclarativeBase):
     pass
 
 
+class GrantedBenefit(Base):
+    __tablename__ = 'granted_benefits'
+    __table_args__ = {"schema": DB_SCHEMA}
+
+    oid: Mapped[str] = mapped_column(primary_key=True)
+    benefit_id: Mapped[str] = mapped_column(String)
+    name: Mapped[str] = mapped_column(String)
+    regulation: Mapped[str] = mapped_column(String, nullable=True)
+    beneficiary_id: Mapped[str] = mapped_column(String)
+    beneficiary_name: Mapped[str] = mapped_column(String)
+    granted_date: Mapped[str] = mapped_column(TIMESTAMP)
+    granted_amount: Mapped[float] = mapped_column(Float)
+    import_package_oid: Mapped[str] = mapped_column(String)
+    convener_id: Mapped[str] = mapped_column(ForeignKey(f"{DB_SCHEMA}.convener.id"))
+
+
+class OrganizationGroup(Base):
+    __tablename__ = 'organization_group'
+    __table_args__ = {"schema": DB_SCHEMA}
+
+    organization_group_id: Mapped[str] = mapped_column(primary_key=True)
+    organization_group_name: Mapped[str] = mapped_column(String)
+
+
+class Organization(Base):
+    __tablename__ = 'organization'
+    __table_args__ = {"schema": DB_SCHEMA}
+    
+    organization_id: Mapped[str] = mapped_column(primary_key=True)
+    organization_name: Mapped[str] = mapped_column(String)
+
+
+class Area(Base):
+    __tablename__ = 'area'
+    __table_args__ = {"schema": DB_SCHEMA}
+
+    area_id: Mapped[str] = mapped_column(primary_key=True)
+    area_name: Mapped[str] = mapped_column(String)
+
+
+class Service(Base):
+    __tablename__ = 'service'
+    __table_args__ = {"schema": DB_SCHEMA}
+
+    service_id: Mapped[str] = mapped_column(primary_key=True)
+    service_name: Mapped[str] = mapped_column(String)
+
+
+class Convener(Base):
+    __tablename__ = 'convener'
+    __table_args__ = {"schema": DB_SCHEMA}
+
+    id: Mapped[str] = mapped_column(primary_key=True)
+    organization_group_id: Mapped[str] = mapped_column(ForeignKey(f"{DB_SCHEMA}.organization_group.organization_group_id"), nullable=True)
+    organization_id: Mapped[str] = mapped_column(ForeignKey(f"{DB_SCHEMA}.organization.organization_id"), nullable=True)
+    area_id: Mapped[str] = mapped_column(ForeignKey(f"{DB_SCHEMA}.area.area_id"), nullable=True)
+    service_id: Mapped[str] = mapped_column(ForeignKey(f"{DB_SCHEMA}.service.service_id"), nullable=True)
+
 
 class CreateDatabase:
-    
-
-    
     def __init__(self) -> None:
-        self.engine = create_engine(DB_CONNECTION_URL, echo=False)
+        self.engine = create_engine(DB_CONNECTION_URL, echo=True)
         # TODO: Comprobar si se puede meter aquí el schema en el BASE
         self.base = Base()
 
