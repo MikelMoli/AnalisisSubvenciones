@@ -213,7 +213,7 @@ class ExtractGrantedBenefits:
         item["url"] = error_url
         with open(ERROR_FILE_PATH, 'a') as error_file:
             error_file.write(json.dumps(item))
-            error_file.write(",")
+            error_file.write(",\n")
 
     @staticmethod
     def _process_page_data(url):
@@ -246,9 +246,10 @@ class ExtractGrantedBenefits:
         self.pbar.update()
 
     def _parallel_run(self):
-        self.pbar = tqdm(total=self._pagination_factor)
+
+        self.pbar = tqdm(iterable=range(INDEX, self._pagination_factor))
         with mp.Pool(processes=8) as pool:
-            for page_number in range(0, self._pagination_factor):
+            for page_number in range(INDEX, self._pagination_factor):
                 petition_page_number = page_number + 1
                 url = self._BASE_URL.format(ITEMS_PER_PETITION, petition_page_number)
                 res = pool.apply_async(ExtractGrantedBenefits._process_page_data, (url,), callback=self.update_progress_bar)
@@ -258,7 +259,7 @@ class ExtractGrantedBenefits:
             pool.join()
     
     def _sequential_run(self):
-        for page_number in range(0, self._pagination_factor):
+        for page_number in tqdm(range(INDEX, self._pagination_factor)):
             petition_page_number = page_number + 1
             url = self._BASE_URL.format(ITEMS_PER_PETITION, petition_page_number)
             ExtractGrantedBenefits._process_page_data(url)
@@ -272,6 +273,9 @@ class ExtractGrantedBenefits:
 
 
 if __name__ == '__main__':
+    # No se ha hecho la extracción entera bien. Se han conseguido 546261 registros de un total de 759661
+    # Ahora hay que aprovechar para hacerlo incremental
+    INDEX = 0
     egb = ExtractGrantedBenefits()
     egb.run()
     # url = ""

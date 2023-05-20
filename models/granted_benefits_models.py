@@ -19,15 +19,15 @@ class GrantedBenefit(Base):
     __table_args__ = {"schema": DB_SCHEMA}
 
     oid: Mapped[str] = mapped_column(primary_key=True)
-    benefit_id: Mapped[str] = mapped_column(String)
-    name: Mapped[str] = mapped_column(String)
+    benefit_id: Mapped[str] = mapped_column(String, nullable=True)
+    name: Mapped[str] = mapped_column(String, nullable=True)
     regulation: Mapped[str] = mapped_column(String, nullable=True)
-    beneficiary_id: Mapped[str] = mapped_column(String)
-    beneficiary_name: Mapped[str] = mapped_column(String)
-    granted_date: Mapped[str] = mapped_column(TIMESTAMP)
-    granted_amount: Mapped[float] = mapped_column(Float)
-    import_package_oid: Mapped[str] = mapped_column(String)
-    convener_id: Mapped[str] = mapped_column(ForeignKey(f"{DB_SCHEMA}.convener.id"))
+    beneficiary_id: Mapped[str] = mapped_column(String, nullable=True)
+    beneficiary_name: Mapped[str] = mapped_column(String, nullable=True)
+    granted_date: Mapped[str] = mapped_column(TIMESTAMP, nullable=True)
+    granted_amount: Mapped[float] = mapped_column(Float, nullable=True)
+    import_package_oid: Mapped[str] = mapped_column(String, nullable=True)
+    convener_id: Mapped[str] = mapped_column(ForeignKey(f"{DB_SCHEMA}.convener.id"), nullable=True)
 
 
 class OrganizationGroup(Base):
@@ -35,7 +35,7 @@ class OrganizationGroup(Base):
     __table_args__ = {"schema": DB_SCHEMA}
 
     organization_group_id: Mapped[str] = mapped_column(primary_key=True)
-    organization_group_name: Mapped[str] = mapped_column(String)
+    organization_group_name: Mapped[str] = mapped_column(String, nullable=True)
 
 
 class Organization(Base):
@@ -43,7 +43,7 @@ class Organization(Base):
     __table_args__ = {"schema": DB_SCHEMA}
     
     organization_id: Mapped[str] = mapped_column(primary_key=True)
-    organization_name: Mapped[str] = mapped_column(String)
+    organization_name: Mapped[str] = mapped_column(String, nullable=True)
 
 
 class Area(Base):
@@ -51,7 +51,7 @@ class Area(Base):
     __table_args__ = {"schema": DB_SCHEMA}
 
     area_id: Mapped[str] = mapped_column(primary_key=True)
-    area_name: Mapped[str] = mapped_column(String)
+    area_name: Mapped[str] = mapped_column(String, nullable=True)
 
 
 class Service(Base):
@@ -59,7 +59,7 @@ class Service(Base):
     __table_args__ = {"schema": DB_SCHEMA}
 
     service_id: Mapped[str] = mapped_column(primary_key=True)
-    service_name: Mapped[str] = mapped_column(String)
+    service_name: Mapped[str] = mapped_column(String, nullable=True)
 
 
 class Convener(Base):
@@ -82,6 +82,7 @@ class CreateDatabase:
     def run(self):
         metadata = Base.metadata
         Base.metadata.create_all(self.engine)
+
 
 if __name__=='__main__':
     cd = CreateDatabase()
